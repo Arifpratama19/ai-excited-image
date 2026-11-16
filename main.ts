@@ -1,87 +1,84 @@
-// ai-excited-01 entry (Node 22, standard library only): the image is the
-// entry.png beside this file, and this program writes it to /output/entry.png.
-// The gate takes a whole PNG or JPEG of at most 1 MiB and 1024 by 1024 pixels,
-// so before copying, the program validates the file: it must be a JPEG
-// (SOI magic FF D8 FF), at most 1 MiB, and at most 1024 by 1024 pixels
-// (dimensions read from the JPEG SOF marker), and it must end with the
-// EOI marker (FF D9), so a truncated file is rejected instead of copied.
-// The judge sees exactly the bytes written here, so the program copies
-// the file byte for byte and does nothing else: run twice, it writes the
-// same bytes twice.
+// Entry program for make.fun ai-excited-01: "Make the AI judge excited".
+// Copies the entry image (entry.png, a JPEG) to /output/entry.png after
+// validating it is a whole JPEG within the competition's limits.
 //
-// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+// The image: a colossal blue whale breaching through the shattered ceiling
+// of a quiet old library into a starry night sky, books spiralling, a child
+// on a ladder reaching up. Generated fresh for this entry.
+//
+// Runs with Node 22 type-stripping (erasable syntax only, no enums or
+// namespaces). Deterministic: the output bytes are exactly the input bytes.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const MAX_BYTES = 1024 * 1024;
-const MAX_DIMENSION = 1024;
+const MAX_BYTES = 1048576;
+const MAX_SIDE = 1024;
 
-function fail(message) {
-  console.error(`entry: ${message}`);
-  process.exit(1);
+function fail(message: string): never {
+  throw new Error("entry image rejected: " + message);
 }
 
-/** Read width and height from a JPEG buffer by scanning for the SOF marker. */
-function jpegDimensions(image) {
-  let offset = 2; // after the SOI marker (FF D8)
-  while (offset + 3 < image.length) {
-    if (image[offset] !== 0xff) fail('not a JPEG: bad marker prefix');
-    // Skip 0xFF fill bytes: the marker is the first non-0xFF byte after them.
-    let marker = image[offset + 1];
-    while (marker === 0xff && offset + 2 < image.length) {
-      offset++;
-      marker = image[offset + 1];
-    }
-    if (marker === 0xd9) fail('not a JPEG: no SOF marker before EOI');
-    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
-      offset += 2; // standalone marker, no length field
+// Read the JPEG dimensions from its first Start-Of-Frame marker.
+// Returns [width, height]. Throws when no SOF marker is found.
+function jpegSize(bytes: Buffer): [number, number] {
+  let i = 2;
+  while (i + 9 < bytes.length) {
+    if (bytes[i] !== 0xff) {
+      i += 1;
       continue;
     }
-    if (marker === 0xda) fail('not a JPEG: no SOF marker before scan data');
-    const length = image.readUInt16BE(offset + 2);
-    if (length < 2 || offset + 2 + length > image.length) {
-      fail('not a JPEG: truncated segment');
+    const marker = bytes[i + 1];
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      i += 2;
+      continue;
     }
-    // SOF0-SOF15, except DHT (0xc4), JPG (0xc8) and DAC (0xcc).
-    if (
-      marker >= 0xc0 && marker <= 0xcf &&
-      marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc
-    ) {
-      if (length < 8) fail('not a JPEG: truncated SOF segment');
-      const height = image.readUInt16BE(offset + 5);
-      const width = image.readUInt16BE(offset + 7);
-      return { width, height };
+    if (marker === 0xda) break; // start of scan: no SOF after this
+    const length = bytes.readUInt16BE(i + 2);
+    if (length < 2 || i + 2 + length > bytes.length) break;
+    if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+      const height = bytes.readUInt16BE(i + 5);
+      const width = bytes.readUInt16BE(i + 7);
+      return [width, height];
     }
-    offset += 2 + length;
+    i += 2 + length;
   }
-  fail('not a JPEG: no SOF marker found');
+  fail("no JPEG start-of-frame marker found");
 }
 
-const here = dirname(fileURLToPath(import.meta.url));
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-const image = readFileSync(join(here, 'entry.png'));
+function main(): void {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const source = join(here, "entry.png");
+  const outDir = process.env.MAKEFUN_OUTPUT_DIR?.trim() || "/output";
+  const target = join(outDir, "entry.png");
 
-if (
-  image.length < 3 ||
-  image[0] !== 0xff || image[1] !== 0xd8 || image[2] !== 0xff
-) {
-  fail('not a JPEG: missing SOI magic bytes');
-}
-if (image.length > MAX_BYTES) {
-  fail(`image is ${image.length} bytes, over the 1 MiB limit`);
-}
-const { width, height } = jpegDimensions(image);
-if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-  fail(`image is ${width}x${height}, over the 1024x1024 limit`);
-}
-if (
-  image[image.length - 2] !== 0xff || image[image.length - 1] !== 0xd9
-) {
-  fail('not a JPEG: missing EOI marker, file looks truncated');
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(source);
+  } catch {
+    fail("cannot read " + source + " (is entry.png beside main.ts?)");
+  }
+
+  // Whole JPEG: starts with SOI, ends with EOI.
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    fail("not a JPEG (missing SOI marker 0xFFD8)");
+  }
+  if (bytes[bytes.length - 2] !== 0xff || bytes[bytes.length - 1] !== 0xd9) {
+    fail("truncated JPEG (missing EOI marker 0xFFD9)");
+  }
+  if (bytes.length > MAX_BYTES) {
+    fail("image is " + bytes.length + " bytes, over the 1 MiB limit");
+  }
+
+  const [width, height] = jpegSize(bytes);
+  if (width > MAX_SIDE || height > MAX_SIDE) {
+    fail("image is " + width + "x" + height + ", over the 1024x1024 limit");
+  }
+
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(target, bytes);
+  console.log("wrote " + target + " (" + bytes.length + " bytes, " + width + "x" + height + ")");
 }
 
-mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, 'entry.png'), image);
+main();

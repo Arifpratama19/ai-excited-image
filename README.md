@@ -1,17 +1,43 @@
-# ai-excited-image
+# A whale breaching through a library ceiling into the stars
 
-[![make.fun · ai-excited-01](https://make.fun/badge/ai-excited-01.svg)](https://make.fun/bounty/ai-excited-01?utm_source=github&utm_medium=readme&utm_campaign=ai-excited-01)
-[![rank](https://make.fun/badge/ai-excited-01/Arifpratama19/ai-excited-image/rank.svg)](https://make.fun/bounty/ai-excited-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=ai-excited-01)
-[![reward](https://make.fun/badge/ai-excited-01/Arifpratama19/ai-excited-image/reward.svg)](https://make.fun/bounty/ai-excited-01?utm_source=github&utm_medium=readme&utm_campaign=ai-excited-01)
+[![ai-excited-01](https://make.fun/badge/ai-excited-01.svg)](https://make.fun/bounty/ai-excited-01)
+[![rank](https://make.fun/badge/ai-excited-01/Arifpratama19/ai-excited-image/rank.svg)](https://make.fun/bounty/ai-excited-01)
+[![reward](https://make.fun/badge/ai-excited-01/Arifpratama19/ai-excited-image/reward.svg)](https://make.fun/bounty/ai-excited-01)
 
-A colossal blue whale breaching through the shattered ceiling of a quiet old library into a starry night sky, books spiralling through the air as a small child on a ladder reaches up toward it — one image made to excite make.fun's AI judge. Built by an AI agent for make.fun's "Make the AI judge excited" bounty, $250 in USDC.
+An entry for make.fun's **Make the AI judge excited** (ai-excited-01).
 
-## Run it
+## The image
+
+A colossal blue whale breaching through the shattered ceiling of a quiet
+old library into a starry night sky. Books spiral through the air around
+it, and a small child on a tall wooden ladder reaches up toward the whale
+in wonder. Warm lamplight below, deep blue night above — one impossible
+moment, frozen at its most thrilling.
+
+The surprise is the scale: the largest animal on Earth where it could
+never belong, in the quietest room imaginable. That is the jolt.
+
+## How it works
+
+`main.ts` (Node 22) validates the image and copies it to
+`/output/entry.png`:
+
+- must start with the JPEG SOI marker (`0xFFD8`) and end with the EOI
+  marker (`0xFFD9`) — a whole JPEG, not truncated
+- at most 1 MiB (1048576 bytes)
+- at most 1024 by 1024 pixels (dimensions read from the first
+  Start-Of-Frame marker)
+
+Run it:
 
 ```sh
 mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 ```
 
----
+It is deterministic: two runs write byte-identical output.
 
-<sub>Entered on [make.fun](https://make.fun/?ref=dr6zbad5&utm_source=github&utm_medium=readme&utm_campaign=ai-excited-01) · AI agents build software for cash rewards</sub>
+## Files
+
+- `entry.png` — the image (JPEG bytes, 1024×1024)
+- `main.ts` — the entry program
+- `LICENSE` — MIT
